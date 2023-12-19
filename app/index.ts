@@ -6,12 +6,13 @@ import './style.scss';
 const rust = import('../public/pkg/index');
 
 const HINT_ID: string = "hint";
-const BOARD_TABLE_ID: string = "board-table";
+const BOARD_TABLES_ID: string = "board-tables";
 const MONTH_FORM_ID: string = "month-form";
 const DAY_FORM_ID: string = "day-form";
 const WEEKDAY_FORM_ID: string = "weekday-form";
 const PUZZLE_TYPE_FORM_ID: string = "puzzle-type-form";
 const SOLVE_BUTTON_ID: string = "solve-button";
+const SOLUTION_COUNT_ID: string = "solution-count";
 
 enum PuzzleType {
     DragonFjord,
@@ -32,9 +33,9 @@ function buttonOnClick() {
 
     resetBoard();
 
-    callSolver(month, day, weekday, puzzle_type).then(result => {
-        console.log(result);
-        renderTable(month, day, weekday, result);
+    callSolver(month, day, weekday, puzzle_type).then(results => {
+        console.log(results);
+        renderTables(month, day, weekday, results);
     })
 }
 
@@ -43,7 +44,7 @@ function resetBoard() {
     hint.innerText = "";
 }
 
-async function callSolver(month: number, day: number, weekday: number, puzzle_type: PuzzleType): Promise<string> {
+async function callSolver(month: number, day: number, weekday: number, puzzle_type: PuzzleType): Promise<string[]> {
     if (!(1 <= month && month <= 12 && 1 <= day && day <= 31 && 0 <= weekday && weekday < 7)) {
 
         throw new Error("Error: invalid date: " + month + ", " + day);
@@ -51,9 +52,9 @@ async function callSolver(month: number, day: number, weekday: number, puzzle_ty
 
     // If there is a solution without flipping, return it.
     let r = await rust.then(m => {
-        return m.find_solution(month, day, weekday, puzzle_type, false /* allow_flip */);
+        return m.find_solutions(month, day, weekday, puzzle_type, false /* allow_flip */);
     });
-    if (r != "") {
+    if (r.length > 0) {
         return r;
     }
 
@@ -61,7 +62,7 @@ async function callSolver(month: number, day: number, weekday: number, puzzle_ty
     hint.innerText = "(No solution without flipping pieces.)";
 
     return await rust.then(m => {
-        return m.find_solution(month, day, weekday, puzzle_type, true);
+        return m.find_solutions(month, day, weekday, puzzle_type, true);
     });
 }
 
@@ -114,7 +115,7 @@ function onChangePuzzleType() {
     }
 }
 
-function renderTable(month: number, day: number, weekday: number, board_str: string) {
+function renderTables(month: number, day: number, weekday: number, board_strs: string[]) {
     const HEIGHT = 8;
     const WIDTH = 7;
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -134,40 +135,48 @@ function renderTable(month: number, day: number, weekday: number, board_str: str
         "#": "white",
     };
 
-    let board = [];
-    for (const l of board_str.trim().split("\n")) {
-        const cs = l.trim().split(" ");
-        if (cs.length != WIDTH) {
-            console.log("unexpected board width: ", cs);
-        }
-        board.push(cs);
-    }
-    if (board.length != HEIGHT) {
-        console.log("unexpected board height: ", board.length, board);
-    }
+    const solutionCountDiv = <HTMLDivElement>document.getElementById(SOLUTION_COUNT_ID);
+    solutionCountDiv.innerText = `This puzzle has ${board_strs.length.toString()} solutions`;
 
-    const table = <HTMLTableElement>document.getElementById(BOARD_TABLE_ID);
-    table.innerText = "";
-    for (let i = 0; i < HEIGHT; i++) {
-        let row = <HTMLTableRowElement>table.insertRow(i);
-        for (let j = 0; j < WIDTH; j++) {
-            let cell = row.insertCell(j);
-            let div = document.createElement("div");
-            div.className = "cell";
-            let color = COLOR_DICT[board[i][j]];
-            div.style.backgroundColor = color;
+    const tablesDiv = <HTMLDivElement>document.getElementById(BOARD_TABLES_ID);
+    tablesDiv.innerText = "";
 
-            if (board[i][j] === "M") {
-                div.innerText = MONTHS[month-1].toString();
-            } else if (board[i][j] === "D") {
-                div.innerText = day.toString();
-            }else if (board[i][j] === "W") {
-                div.innerText = WEEKDAYS[weekday].toString();
+    board_strs.forEach((board_str) => {
+        const table = tablesDiv.appendChild(document.createElement("table"));
+        table.className = "board-table";
+        let board = [];
+        for (const l of board_str.trim().split("\n")) {
+            const cs = l.trim().split(" ");
+            if (cs.length != WIDTH) {
+                console.log("unexpected board width: ", cs);
             }
-
-            cell.appendChild(div);
+            board.push(cs);
         }
-    }
+        if (board.length != HEIGHT) {
+            console.log("unexpected board height: ", board.length, board);
+        }
+
+        for (let i = 0; i < HEIGHT; i++) {
+            let row = <HTMLTableRowElement>table.insertRow(i);
+            for (let j = 0; j < WIDTH; j++) {
+                let cell = row.insertCell(j);
+                let div = document.createElement("div");
+                div.className = "cell";
+                let color = COLOR_DICT[board[i][j]];
+                div.style.backgroundColor = color;
+
+                if (board[i][j] === "M") {
+                    div.innerText = MONTHS[month-1].toString();
+                } else if (board[i][j] === "D") {
+                    div.innerText = day.toString();
+                }else if (board[i][j] === "W") {
+                    div.innerText = WEEKDAYS[weekday].toString();
+                }
+
+                cell.appendChild(div);
+            }
+        }
+    });
 }
 
 

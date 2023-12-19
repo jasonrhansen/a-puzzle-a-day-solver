@@ -9,13 +9,13 @@ extern "C" {
 
 #[wasm_bindgen]
 /// month: 1~12, day: 1~31
-pub fn find_solution(
+pub fn find_solutions(
     month: i32,
     day: i32,
     week: i32,
     puzzle_type: i32,
     allow_flip: bool,
-) -> String {
+) -> Box<[JsValue]> {
     let m = {
         let x = i32::from(month > 6);
         let y = (month - 1) - x * 6;
@@ -45,7 +45,7 @@ pub fn find_solution(
     let blocks = Block::get_blocks(puzzle_type);
     let opts = SolverOptions {
         allow_flip,
-        one_solution: true,
+        one_solution: false,
     };
 
     let sols = solve(&board, &blocks, &opts)
@@ -54,8 +54,11 @@ pub fn find_solution(
         .collect::<Vec<_>>();
 
     if sols.is_empty() {
-        "".to_string()
+        vec![].into_boxed_slice()
     } else {
-        sols[0].to_string()
+        sols.into_iter()
+            .map(|b| JsValue::from_str(&b.to_string()))
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 }
